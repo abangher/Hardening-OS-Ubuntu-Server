@@ -1,0 +1,81 @@
+Instal dan konfigurasi service auditd.
+
+#echo "Installing auditd"
+apt install -y auditd audispd-plugins
+
+# Modifying /etc/audit/auditd.conf
+echo "Modifying /etc/audit/auditd.conf..."
+sudo sed -i 's/space_left_action = SYSLOG/space_left_action = syslog/' /etc/audit/auditd.conf
+sudo sed -i 's/admin_space_left_action = SUSPEND/admin_space_left_action = syslog/' /etc/audit/auditd.conf
+sudo sed -i 's/disk_full_action = SUSPEND/disk_full_action = syslog/' /etc/audit/auditd.conf
+sudo sed -i 's/disk_error_action = SUSPEND/disk_error_action = syslog/' /etc/audit/auditd.conf
+
+
+# Removing /etc/audit/rules.d/10-wazuh.rules
+echo "Removing /etc/audit/rules.d/10-wazuh.rules..."
+sudo rm /etc/audit/rules.d/10-wazuh.rules
+
+# Adding rules to /etc/audit/rules.d/10-wazuh.rules
+echo "Adding rules to /etc/audit/rules.d/10-wazuh.rules..."
+sudo cat <<EOF >> /etc/audit/rules.d/10-wazuh.rules
+-D
+-a always,exit -S all -F dir=/var/log -F perm=w -F key=audit-wazuh-w
+-a always,exit -S all -F dir=/var/log -F perm=a -F key=audit-wazuh-a
+-a always,exit -S all -F dir=/var/log -F perm=x -F key=audit-wazuh-x
+-a always,exit -S all -F dir=/etc/login.defs -F perm=w -F key=audit-wazuh-w
+-a always,exit -S all -F dir=/etc/login.defs -F perm=a -F key=audit-wazuh-a
+-a always,exit -S all -F dir=/etc/login.defs -F perm=x -F key=audit-wazuh-x
+-a always,exit -S all -F dir=/etc/security/faillock.conf -F perm=w -F key=audit-wazuh-w
+-a always,exit -S all -F dir=/etc/security/faillock.conf -F perm=a -F key=audit-wazuh-a
+-a always,exit -S all -F dir=/etc/security/faillock.conf -F perm=x -F key=audit-wazuh-x
+-a always,exit -F arch=b64 -S execve -F auid=0 -F key=audit-wazuh-c
+-a always,exit -F arch=b64 -S execve -F egid!=122 -F key=audit-wazuh-c
+-a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve -k user_emulation
+-a always,exit -F arch=b32 -C euid!=uid -F auid!=unset -S execve -k user_emulation
+-w /etc/sudoers -p wa -k scope
+-w /etc/sudoers.d -p wa -k scope
+-w /etc/issue -p wa -k system-locale 
+-w /etc/issue.net -p wa -k system-locale 
+-w /etc/hosts -p wa -k system-locale 
+-w /etc/networks -p wa -k system-locale 
+-w /etc/network/ -p wa -k system-locale
+-a always,exit -F arch=b64 -S sethostname,setdomainname -k system-locale 
+-a always,exit -F arch=b32 -S sethostname,setdomainname -k system-locale
+EOF
+
+# Adding rules to /etc/audit/rules.d/50-system_local.rules
+echo "Adding rules to /etc/audit/rules.d/50-system_local.rules..."
+sudo cat <<EOF >> /etc/audit/rules.d/50-system_local.rules
+-w /etc/group -p wa -k identity 
+-w /etc/passwd -p wa -k identity 
+-w /etc/gshadow -p wa -k identity 
+-w /etc/shadow -p wa -k identity 
+-w /etc/security/opasswd -p wa -k identity
+-w /var/run/utmp -p wa -k session 
+-w /var/log/wtmp -p wa -k session 
+-w /var/log/btmp -p wa -k session
+-w /var/log/lastlog -p wa -k logins 
+-w /var/run/faillock -p wa -k logins 
+-w /etc/apparmor/ -p wa -k MAC-policy 
+-w /etc/apparmor.d/ -p wa -k MAC-policy
+-a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k timechange
+-a always,exit -F arch=b32 -S adjtimex,settimeofday,clock_settime -k timechange
+-w /etc/localtime -p wa -k time-change
+EOF
+
+# Adding rule to /etc/audit/rules.d/99-finalize.rules
+echo "Adding rule to /etc/audit/rules.d/99-finalize.rules..."
+sudo echo "-e 2" >> /etc/audit/rules.d/99-finalize.rules
+
+# Loading audit rules
+echo "Loading audit rules..."
+sudo augenrules --load
+
+# Setting permissions for /var/log/audit/
+echo "Setting permissions for /var/log/audit/..."
+sudo chgrp adm /var/log/audit/
+sudo find /etc/audit/ -type f \( -name '*.conf' -o -name '*.rules' \) -exec chmod u-x,g-wx,o-rwx {} +
+sudo chmod go-w /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules
+sudo chown root /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules
+sudo chmod go-w /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules
+
