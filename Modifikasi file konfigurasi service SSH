@@ -1,0 +1,33 @@
+Modifikasi file konfigurasi service SSH
+
+# Append lines to /etc/ssh/sshd_config
+echo "Modifying /etc/ssh/sshd_config..."
+sudo head -n 29 /etc/ssh/sshd_config > /etc/ssh/sshd_config.temp && mv /etc/ssh/sshd_config.temp /etc/ssh/sshd_config
+sudo echo "Append lines to /etc/ssh/sshd_config..."
+sudo echo "LoginGraceTime 1m" | tee -a /etc/ssh/sshd_config > /dev/null
+sudo echo "PermitRootLogin no" | tee -a /etc/ssh/sshd_config > /dev/null
+sudo echo "MaxAuthTries 4" | tee -a /etc/ssh/sshd_config > /dev/null
+sudo echo "MaxSessions 10" | tee -a /etc/ssh/sshd_config > /dev/null
+sudo echo "UsePAM yes" | tee -a /etc/ssh/sshd_config > /dev/null
+sudo echo "DenyUsers root" | tee -a /etc/ssh/sshd_config > /dev/null
+sudo echo "AllowTcpForwarding no" | tee -a /etc/ssh/sshd_config > /dev/null
+sudo echo "X11Forwarding no" | tee -a /etc/ssh/sshd_config > /dev/null
+sudo echo "PrintMotd yes" | tee -a /etc/ssh/sshd_config > /dev/null
+sudo echo "TCPKeepAlive no" | tee -a /etc/ssh/sshd_config > /dev/null
+sudo echo "ClientAliveInterval 15" | tee -a /etc/ssh/sshd_config > /dev/null
+sudo echo "ClientAliveCountMax 3" | tee -a /etc/ssh/sshd_config > /dev/null
+sudo echo "MaxStartups 10:30:60" | tee -a /etc/ssh/sshd_config > /dev/null
+sudo echo "Banner /etc/issue.net" | tee -a /etc/ssh/sshd_config > /dev/null
+sudo echo "MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256" | tee -a /etc/ssh/sshd_config > /dev/null
+
+echo "Changing /etc/ssh/sshd_config permissions..."
+sudo chmod og-rwx /etc/ssh/sshd_config
+
+echo "Restarting sshd service..."
+sudo systemctl restart ssh
+
+echo "Adding SSH limitation..."
+sudo echo "ssh: 192.168.91.79" >> /etc/hosts.allow
+sudo echo "ssh: 192.168.91.160" >> /etc/hosts.allow
+sudo echo "ssh: 192.168.91.158" >> /etc/hosts.allow
+sudo echo "ssh: 192.168.91." >> /etc/hosts.deny
