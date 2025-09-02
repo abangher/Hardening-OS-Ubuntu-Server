@@ -1,0 +1,102 @@
+Modifikasi hak akses untuk file konfigurasi penting
+
+# Modifying /etc/systemd/journald.conf
+echo "Modifying /etc/systemd/journald.conf..."
+sudo sed -i 's/#Compress=yes/Compress=yes/' /etc/systemd/journald.conf
+
+# Modifying permissions and ownership for cron files
+sudo echo "Modifying permissions and ownership for cron files..."
+cron_dir="/etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly /etc/cron.d"
+for dir in $cron_dir; do
+    sudo chown root:root $dir
+    sudo chmod og-rwx $dir
+done
+sudo chmod og-rwx /etc/crontab
+
+# Creating /etc/cron.allow and setting permissions
+echo "Creating /etc/cron.allow and setting permissions..."
+sudo rm -f /etc/cron.deny
+sudo touch /etc/cron.allow
+sudo chmod g-wx,o-rwx /etc/cron.allow
+sudo chown root:root /etc/cron.allow
+
+# Removing /etc/at.deny if exists
+echo "Removing /etc/at.deny if exists..."
+sudo rm -f /etc/at.deny
+
+# Creating /etc/at.allow and setting permissions
+echo "Creating /etc/at.allow and setting permissions..."
+sudo touch /etc/at.allow
+sudo chmod g-wx,o-rwx /etc/at.allow
+sudo chown root:root /etc/at.allow
+
+Modify authentication policy related configuration file
+Modifikasi file konfigurasi yang berhubungan dengan aturan otentikasi
+
+# Modifying /etc/security/pwquality.conf
+echo "Modifying /etc/security/pwquality.conf..."
+sudo sed -i 's/# minlen = 8/minlen = 8/' /etc/security/pwquality.conf
+sudo sed -i 's/# minclass = 0/minclass = 4/' /etc/security/pwquality.conf
+
+# Modifying /etc/pam.d/su
+echo "Modifying /etc/pam.d/su..."
+#sed -i '/^auth[[:space:]]\+sufficient pam_rootok.so/s/^/#/' /etc/pam.d/su
+sudo echo "auth required pam_wheel.so use_uid group=sudo" >> /etc/pam.d/su
+
+# Append lines to /etc/pam.d/common-auth
+echo "Modifying /etc/pam.d/common-auth..."
+sudo head -n 15 /etc/pam.d/common-auth > /etc/pam.d/common-auth.temp && mv /etc/pam.d/common-auth.temp /etc/pam.d/common-auth
+sudo cat <<EOF >> /etc/pam.d/common-auth
+auth required pam_faillock.so preauth
+# here are the per-package modules (the "Primary" block)
+auth    [success=2 default=ignore]      pam_unix.so nullok
+auth    [success=1 default=ignore]      pam_sss.so use_first_pass
+# enable faillock to authenticate
+auth    [default=die] pam_faillock.so authfail
+auth    sufficient pam_faillock.so authsucc
+# here's the fallback if no module succeeds
+auth    requisite                       pam_deny.so
+# prime the stack with a positive return value if there isn't one already;
+# this avoids us returning an error just because nothing sets a success code
+# since the modules above will each just jump around
+auth    required                        pam_permit.so
+# and here are more per-package modules (the "Additional" block)
+auth    optional                        pam_cap.so
+# end of pam-auth-update config
+EOF
+
+
+# Modifying /etc/pam.d/common-account
+echo "Modifying /etc/pam.d/common-account..."
+sudo echo "account required pam_faillock.so" >> /etc/pam.d/common-account
+
+# Modifying /etc/pam.d/common-password
+echo "Modifying /etc/pam.d/common-password..."
+sudo sed -i 's/password[[:space:]]\+\[success=2 default=ignore\][[:space:]]\+pam_unix.so obscure use_authtok try_first_pass yescrypt/password [success=2 default=ignore] pam_unix.so obscure use_authtok try_first_pass yescrypt remember=5/' /etc/pam.d/common-password
+sudo sed -i 's/password[[:space:]]\+\[success=2 default=ignore\][[:space:]]\+pam_unix.so obscure use_authtok try_first_pass sha512/password [success=2 default=ignore] pam_unix.so obscure use_authtok try_first_pass sha512 remember=5/' /etc/pam.d/common-password
+
+# Modify /etc/security/faillock.conf
+echo "Modifying /etc/security/faillock.conf..."
+sudo echo "deny = 4" >> /etc/security/faillock.conf
+sudo echo "fail_interval = 900" >> /etc/security/faillock.conf
+sudo echo "unlock_time = 600" >> /etc/security/faillock.conf
+
+# Modifying /etc/login.defs
+echo "Modifying /etc/login.defs..."
+sudo sed -i 's/PASS_MAX_DAYS[[:space:]]\+99999/PASS_MAX_DAYS 365/' /etc/login.defs
+sudo sed -i 's/PASS_MIN_DAYS[[:space:]]\+0/PASS_MIN_DAYS 1/' /etc/login.defs
+
+# Setting password policies for users
+echo "Setting password policies for users..."
+sudo chage --mindays 1 root
+sudo chage --maxdays 365 root
+sudo chage --warndays 7 root
+sudo chage --mindays 1 sysadmin
+sudo chage --maxdays 365 sysadmin
+sudo chage --warndays 7 sysadmin
+
+useradd -D -f 30
+sudo chage --inactive 30 root
+sudo chage --inactive 30 sysadmin
+
+sudo sed -e 's/^\([a-zA-Z0-9_]*\):[^:]*:/\1:x:/' -i /etc/passwd
