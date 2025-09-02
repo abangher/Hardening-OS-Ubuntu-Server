@@ -1,0 +1,50 @@
+Modifikasi file konfigurasi sistem seperti yang ditunjukkan dalam baris perintah berikut.
+
+# Modify permissions and ownership of /boot/grub/grub.cfg
+echo "Modifying permissions and ownership of /boot/grub/grub.cfg..."
+sudo chown root:root /boot/grub/grub.cfg
+sudo chmod u-wx,go-rwx /boot/grub/grub.cfg
+
+# Removing /etc/motd
+echo "Removing /etc/motd..."
+sudo rm /etc/motd
+
+# Stopping and disabling apport service
+echo "Stopping and disabling apport service..."
+sudo systemctl stop apport.service
+sudo systemctl --now disable apport.service
+
+# Modifying /etc/issue and /etc/issue.net
+echo "Modifying /etc/issue and /etc/issue.net..."
+sudo echo "Authorized uses only. All activity may be monitored and reported." > /etc/issue
+sudo echo "Authorized uses only. All activity may be monitored and reported." > /etc/issue.net
+sudo chown root:root /etc/motd
+sudo chmod u-x,go-wx /etc/motd
+sudo chown root:root /etc/issue
+sudo chmod u-x,go-wx /etc/issue
+sudo chown root:root /etc/issue.net
+sudo chmod u-x,go-wx /etc/issue.net
+
+# Disabling fs.suid_dumpable
+echo "Disabling fs.suid_dumpable..."
+sudo sysctl -w fs.suid_dumpable=0
+
+# Modifying /etc/default/apport
+echo "Modifying /etc/default/apport..."
+sudo sed -i 's/enabled=1/enabled=0/' /etc/default/apport
+
+# Adding string to /etc/security/limits.conf
+echo "Adding string to /etc/security/limits.conf..."
+sudo echo "* hard core 0" >> /etc/security/limits.conf
+
+# Adding "fs.suid_dumpable = 0" to /etc/sysctl.conf
+echo "Adding 'fs.suid_dumpable = 0' to /etc/sysctl.conf..."
+sudo echo "fs.suid_dumpable = 0" >> /etc/sysctl.conf
+
+# Modifying GRUB_CMDLINE_LINUX in /etc/default/grub
+echo "Modifying GRUB_CMDLINE_LINUX in /etc/default/grub..."
+sudo sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="apparmor=1 security=apparmor audit=1 audit_backlog_limit=8192"/' /etc/default/grub
+
+# Updating GRUB
+echo "Updating GRUB..."
+sudo update-grub
